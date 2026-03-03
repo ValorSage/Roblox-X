@@ -20,19 +20,19 @@ interface Log {
 const INITIAL_STATE: ExplorerState = {
   items: {
     'workspace': { id: 'workspace', name: 'Workspace', type: 'Folder', parentId: null, isOpen: true, children: [], isSystemItem: true },
-    'server-script-service': { id: 'server-script-service', name: 'ServerScriptService', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'server-storage': { id: 'server-storage', name: 'ServerStorage', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'replicated-first': { id: 'replicated-first', name: 'ReplicatedFirst', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'replicated-storage': { id: 'replicated-storage', name: 'ReplicatedStorage', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'starter-gui': { id: 'starter-gui', name: 'StarterGui', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'server-script-service': { id: 'server-script-service', name: 'ServerScriptService', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'starter-pack': { id: 'starter-pack', name: 'StarterPack', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'starter-player-scripts': { id: 'starter-player-scripts', name: 'StarterPlayerScripts', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'starter-character-scripts': { id: 'starter-character-scripts', name: 'StarterCharacterScripts', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
   },
   rootIds: [
     'workspace', 
-    'server-script-service', 
-    'server-storage', 
+    'replicated-first',
     'replicated-storage', 
-    'starter-gui', 
+    'server-script-service', 
+    'starter-pack',
     'starter-player-scripts', 
     'starter-character-scripts'
   ],
@@ -53,16 +53,39 @@ export default function Home() {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
+        const parsed = JSON.parse(saved) as ExplorerState
+        
+        // CLEAN RULE: Remove any invalid items that might be in localStorage from older versions
+        const validTypes = ['Script', 'LocalScript', 'ModuleScript', 'Folder', 'Tool'];
+        const cleanedItems: Record<string, ExplorerItem> = {};
+        
+        // First pass: copy only valid types and core folders
+        Object.keys(parsed.items).forEach(id => {
+          const item = parsed.items[id];
+          if (validTypes.includes(item.type) || item.isSystemItem) {
+            cleanedItems[id] = item;
+          }
+        });
+
+        // Second pass: remove children references that no longer exist
+        Object.keys(cleanedItems).forEach(id => {
+          const item = cleanedItems[id];
+          if (item.children) {
+            item.children = item.children.filter(childId => cleanedItems[childId]);
+          }
+        });
+
         // Check if core folders exist, if not, merge with INITIAL_STATE or reset
-        // For Phase 2, we want to ensure the user has the latest hierarchy
         const hasCoreFolders = parsed.rootIds.includes('workspace') && parsed.rootIds.includes('server-script-service')
         
         setTimeout(() => {
           if (!hasCoreFolders) {
             setState(INITIAL_STATE)
           } else {
-            setState(parsed)
+            setState({
+              ...parsed,
+              items: cleanedItems
+            })
           }
         }, 0)
       } catch (e) {

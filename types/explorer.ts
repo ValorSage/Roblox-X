@@ -1,4 +1,4 @@
-export type FileType = 'Script' | 'LocalScript' | 'ModuleScript' | 'Folder' | 'Model' | 'Part' | 'Tool' | 'Effect' | 'Team';
+export type FileType = 'Script' | 'LocalScript' | 'ModuleScript' | 'Folder' | 'Tool';
 
 export interface ExplorerItem {
   id: string;

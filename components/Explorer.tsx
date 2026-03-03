@@ -7,19 +7,15 @@ import {
   ChevronRight, 
   ChevronDown, 
   Plus, 
-  FolderPlus, 
   Trash2, 
   Edit2,
-  MoreVertical,
   Search,
-  Box,
-  Package,
-  Wrench,
-  Sparkles,
-  Users
+  Wrench
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ExplorerItem, FileType, ExplorerState } from '@/types/explorer'
+
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface ExplorerProps {
   state: ExplorerState;
@@ -31,13 +27,14 @@ interface ExplorerProps {
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
 const ROBLOX_RULES: Record<string, FileType[]> = {
-  'workspace': ['Model', 'Part', 'Folder'],
-  'server-script-service': ['Script', 'Folder'],
-  'server-storage': ['Script', 'ModuleScript', 'Folder'],
+  'workspace': ['Script', 'LocalScript', 'ModuleScript', 'Folder'],
+  'server-script-service': ['Script', 'ModuleScript', 'Folder'],
+  'replicated-first': ['LocalScript', 'Folder'],
   'replicated-storage': ['ModuleScript', 'Folder'],
-  'starter-gui': ['LocalScript', 'Folder'],
-  'starter-player-scripts': ['LocalScript', 'Folder'],
-  'starter-character-scripts': ['LocalScript', 'Folder'],
+  'starter-pack': ['Tool', 'Folder'],
+  'starter-player-scripts': ['LocalScript', 'ModuleScript', 'Folder'],
+  'starter-character-scripts': ['LocalScript', 'ModuleScript', 'Folder'],
+  'Tool': ['LocalScript', 'Folder'],
   'default': ['Folder']
 };
 
@@ -52,6 +49,7 @@ const AddMenu: React.FC<AddMenuProps> = ({ parentId, items, onAdd, getIcon }) =>
   const getServiceId = (id: string): string | null => {
     const item = items[id];
     if (!item) return null;
+    if (item.type === 'Tool') return 'Tool';
     if (ROBLOX_RULES[id]) return id;
     if (item.parentId) return getServiceId(item.parentId);
     return null;
@@ -70,7 +68,11 @@ const AddMenu: React.FC<AddMenuProps> = ({ parentId, items, onAdd, getIcon }) =>
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 bg-[#2d2d2d] border border-[#444] rounded shadow-xl z-50 py-1 min-w-[120px]">
+    <div className="absolute right-0 top-full mt-1 bg-[#2d2d2d] border border-[#444] rounded shadow-2xl z-[100] py-1 min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-150">
+      <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-400 border-b border-[#444] mb-1 flex items-center justify-between">
+        <span>Insert Object</span>
+        <Plus className="w-2.5 h-2.5 opacity-50" />
+      </div>
       {allowedTypes.map(type => (
         <button
           key={type}
@@ -94,6 +96,7 @@ export const Explorer: React.FC<ExplorerProps> = ({
   selectedId,
   onUpdateState 
 }) => {
+  const isMobile = useIsMobile();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,11 +120,7 @@ export const Explorer: React.FC<ExplorerProps> = ({
     const id = generateId();
     let defaultName = `New ${type}`;
     if (type === 'Folder') defaultName = 'New Folder';
-    if (type === 'Part') defaultName = 'Part';
-    if (type === 'Model') defaultName = 'Model';
     if (type === 'Tool') defaultName = 'Tool';
-    if (type === 'Effect') defaultName = 'Effect';
-    if (type === 'Team') defaultName = 'Team';
 
     const newItem: ExplorerItem = {
       id,
@@ -205,10 +204,10 @@ export const Explorer: React.FC<ExplorerProps> = ({
     if (id) {
       switch (id) {
         case 'workspace': return <span className="text-sm">🧱</span>;
-        case 'server-script-service': return <span className="text-sm">🖥️</span>;
-        case 'server-storage': return <span className="text-sm">📦</span>;
+        case 'replicated-first': return <span className="text-sm">🥇</span>;
         case 'replicated-storage': return <span className="text-sm">🔁</span>;
-        case 'starter-gui': return <span className="text-sm">🖼️</span>;
+        case 'server-script-service': return <span className="text-sm">🖥️</span>;
+        case 'starter-pack': return <span className="text-sm">🎒</span>;
         case 'starter-player-scripts': return <span className="text-sm">📜</span>;
         case 'starter-character-scripts': return <span className="text-sm">🧍</span>;
       }
@@ -223,16 +222,8 @@ export const Explorer: React.FC<ExplorerProps> = ({
         return <FileCode className="w-4 h-4 text-green-400" />;
       case 'ModuleScript':
         return <FileCode className="w-4 h-4 text-yellow-400" />;
-      case 'Model':
-        return <Package className="w-4 h-4 text-blue-300" />;
-      case 'Part':
-        return <Box className="w-4 h-4 text-gray-400" />;
       case 'Tool':
         return <Wrench className="w-4 h-4 text-gray-300" />;
-      case 'Effect':
-        return <Sparkles className="w-4 h-4 text-purple-400" />;
-      case 'Team':
-        return <Users className="w-4 h-4 text-white" />;
     }
   };
 
@@ -296,16 +287,17 @@ export const Explorer: React.FC<ExplorerProps> = ({
             )}
           </div>
 
-          <div className="hidden group-hover:flex items-center gap-1 relative">
-            {item.type === 'Folder' && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === id ? null : id); }}
-                className="p-1 hover:bg-white/10 rounded"
-                title="Add..."
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            )}
+          <div className={cn(
+            "flex items-center gap-1 relative ml-auto pr-1",
+            isMobile ? (isSelected ? "flex" : "hidden") : "hidden group-hover:flex"
+          )}>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === id ? null : id); }}
+              className="p-1 hover:bg-white/10 rounded bg-[#2d2d2d]/50"
+              title="Add..."
+            >
+              <Plus className="w-3 h-3" />
+            </button>
             {showAddMenu === id && <AddMenu parentId={id} items={state.items} onAdd={addItem} getIcon={(t) => getIcon(t)} />}
             {!item.isSystemItem && (
               <>

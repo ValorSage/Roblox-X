@@ -40,7 +40,7 @@ export const Editor: React.FC<EditorProps> = ({ item, items, onContentChange, on
     );
   }
 
-  if (item.type === 'Folder' || item.type === 'Model' || item.type === 'Part' || item.type === 'Tool' || item.type === 'Effect' || item.type === 'Team') {
+  if (item.type === 'Folder' || item.type === 'Tool') {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#1e1e1e] text-gray-500 italic">
         {item.type}s cannot be edited directly
