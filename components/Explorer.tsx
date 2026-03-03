@@ -32,18 +32,12 @@ const generateId = () => Date.now().toString(36) + Math.random().toString(36).su
 
 const ROBLOX_RULES: Record<string, FileType[]> = {
   'workspace': ['Model', 'Part', 'Folder'],
-  'server-script-service': ['Script'],
-  'server-storage': ['Script', 'ModuleScript'],
+  'server-script-service': ['Script', 'Folder'],
+  'server-storage': ['Script', 'ModuleScript', 'Folder'],
   'replicated-storage': ['ModuleScript', 'Folder'],
-  'starter-gui': ['LocalScript'],
-  'starter-player-scripts': ['LocalScript'],
-  'starter-character-scripts': ['LocalScript'],
-  'starter-pack': ['Tool', 'Model'],
-  'lighting': ['Effect', 'Folder'],
-  'teams': ['Team'],
-  'players': ['Folder'],
-  'sound-service': ['Folder'],
-  'replicated-first': ['LocalScript', 'ModuleScript', 'Folder'],
+  'starter-gui': ['LocalScript', 'Folder'],
+  'starter-player-scripts': ['LocalScript', 'Folder'],
+  'starter-character-scripts': ['LocalScript', 'Folder'],
   'default': ['Folder']
 };
 
@@ -207,7 +201,19 @@ export const Explorer: React.FC<ExplorerProps> = ({
     setEditingId(null);
   };
 
-  const getIcon = (type: FileType) => {
+  const getIcon = (type: FileType, id?: string) => {
+    if (id) {
+      switch (id) {
+        case 'workspace': return <span className="text-sm">🧱</span>;
+        case 'server-script-service': return <span className="text-sm">🖥️</span>;
+        case 'server-storage': return <span className="text-sm">📦</span>;
+        case 'replicated-storage': return <span className="text-sm">🔁</span>;
+        case 'starter-gui': return <span className="text-sm">🖼️</span>;
+        case 'starter-player-scripts': return <span className="text-sm">📜</span>;
+        case 'starter-character-scripts': return <span className="text-sm">🧍</span>;
+      }
+    }
+
     switch (type) {
       case 'Folder':
         return <Folder className="w-4 h-4 text-yellow-500/80 fill-yellow-500/20" />;
@@ -234,13 +240,24 @@ export const Explorer: React.FC<ExplorerProps> = ({
     const item = state.items[id];
     if (!item) return null;
 
-    // Simple search filter
-    if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        // If it's a folder, we might still want to show it if children match, but for phase 1 simple is fine
+    // Search logic: show if item matches OR if any child matches
+    const matchesSearch = (itemId: string): boolean => {
+      const it = state.items[itemId];
+      if (!it) return false;
+      if (it.name.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+      if (it.children) {
+        return it.children.some(childId => matchesSearch(childId));
+      }
+      return false;
+    };
+
+    if (searchQuery && !matchesSearch(id)) {
+      return null;
     }
 
     const isSelected = selectedId === id;
     const isEditing = editingId === id;
+    const shouldBeOpen = searchQuery ? (item.type === 'Folder' && matchesSearch(id)) : item.isOpen;
 
     return (
       <div key={id} className="flex flex-col">
@@ -257,12 +274,12 @@ export const Explorer: React.FC<ExplorerProps> = ({
         >
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             {item.type === 'Folder' ? (
-              item.isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+              shouldBeOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
             ) : (
               <div className="w-4 shrink-0" />
             )}
             
-            {getIcon(item.type)}
+            {getIcon(item.type, id)}
             
             {isEditing ? (
               <input
@@ -289,7 +306,7 @@ export const Explorer: React.FC<ExplorerProps> = ({
                 <Plus className="w-3 h-3" />
               </button>
             )}
-            {showAddMenu === id && <AddMenu parentId={id} items={state.items} onAdd={addItem} getIcon={getIcon} />}
+            {showAddMenu === id && <AddMenu parentId={id} items={state.items} onAdd={addItem} getIcon={(t) => getIcon(t)} />}
             {!item.isSystemItem && (
               <>
                 <button 
@@ -311,7 +328,7 @@ export const Explorer: React.FC<ExplorerProps> = ({
           </div>
         </div>
 
-        {item.type === 'Folder' && item.isOpen && item.children?.map(childId => renderItem(childId, depth + 1))}
+        {item.type === 'Folder' && shouldBeOpen && item.children?.map(childId => renderItem(childId, depth + 1))}
       </div>
     );
   };

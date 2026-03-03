@@ -6,41 +6,35 @@ import { Editor } from '@/components/Editor'
 import { ExplorerState, ExplorerItem } from '@/types/explorer'
 import { motion, AnimatePresence } from 'motion/react'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Play, Terminal, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'roblox_explorer_state'
 
+interface Log {
+  type: 'info' | 'error' | 'warn';
+  message: string;
+  timestamp: string;
+}
+
 const INITIAL_STATE: ExplorerState = {
   items: {
     'workspace': { id: 'workspace', name: 'Workspace', type: 'Folder', parentId: null, isOpen: true, children: [], isSystemItem: true },
-    'players': { id: 'players', name: 'Players', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'lighting': { id: 'lighting', name: 'Lighting', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'replicated-first': { id: 'replicated-first', name: 'ReplicatedFirst', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'replicated-storage': { id: 'replicated-storage', name: 'ReplicatedStorage', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'server-script-service': { id: 'server-script-service', name: 'ServerScriptService', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'server-storage': { id: 'server-storage', name: 'ServerStorage', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'replicated-storage': { id: 'replicated-storage', name: 'ReplicatedStorage', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
     'starter-gui': { id: 'starter-gui', name: 'StarterGui', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'starter-pack': { id: 'starter-pack', name: 'StarterPack', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'starter-player': { id: 'starter-player', name: 'StarterPlayer', type: 'Folder', parentId: null, isOpen: true, children: ['starter-player-scripts', 'starter-character-scripts'], isSystemItem: true },
-    'starter-player-scripts': { id: 'starter-player-scripts', name: 'StarterPlayerScripts', type: 'Folder', parentId: 'starter-player', isOpen: false, children: [], isSystemItem: true },
-    'starter-character-scripts': { id: 'starter-character-scripts', name: 'StarterCharacterScripts', type: 'Folder', parentId: 'starter-player', isOpen: false, children: [], isSystemItem: true },
-    'teams': { id: 'teams', name: 'Teams', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
-    'sound-service': { id: 'sound-service', name: 'SoundService', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'starter-player-scripts': { id: 'starter-player-scripts', name: 'StarterPlayerScripts', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
+    'starter-character-scripts': { id: 'starter-character-scripts', name: 'StarterCharacterScripts', type: 'Folder', parentId: null, isOpen: false, children: [], isSystemItem: true },
   },
   rootIds: [
     'workspace', 
-    'players', 
-    'lighting', 
-    'replicated-first', 
-    'replicated-storage', 
     'server-script-service', 
     'server-storage', 
+    'replicated-storage', 
     'starter-gui', 
-    'starter-pack', 
-    'starter-player', 
-    'teams', 
-    'sound-service'
+    'starter-player-scripts', 
+    'starter-character-scripts'
   ],
 }
 
@@ -51,6 +45,8 @@ export default function Home() {
   const [isExplorerOpen, setIsExplorerOpen] = useState(false)
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [logs, setLogs] = useState<Log[]>([])
+  const [isOutputOpen, setIsOutputOpen] = useState(false)
 
   // Load from localStorage after mount to avoid hydration mismatch
   useEffect(() => {
@@ -120,6 +116,35 @@ export default function Home() {
     }))
   }
 
+  const runScript = (id: string) => {
+    const item = state.items[id];
+    if (!item || !item.content) return;
+
+    setIsOutputOpen(true);
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, { type: 'info', message: `Running ${item.name}...`, timestamp }]);
+
+    // Simulated execution: search for print and error
+    const lines = item.content.split('\n');
+    lines.forEach(line => {
+      const printMatch = line.match(/print\s*\((.*)\)/);
+      const errorMatch = line.match(/error\s*\((.*)\)/);
+      const warnMatch = line.match(/warn\s*\((.*)\)/);
+
+      if (printMatch) {
+        setLogs(prev => [...prev, { type: 'info', message: printMatch[1].replace(/['"]/g, ''), timestamp }]);
+      }
+      if (errorMatch) {
+        setLogs(prev => [...prev, { type: 'error', message: errorMatch[1].replace(/['"]/g, ''), timestamp }]);
+      }
+      if (warnMatch) {
+        setLogs(prev => [...prev, { type: 'warn', message: warnMatch[1].replace(/['"]/g, ''), timestamp }]);
+      }
+    });
+
+    setLogs(prev => [...prev, { type: 'info', message: `${item.name} finished execution.`, timestamp }]);
+  };
+
   const selectedItem = selectedId ? state.items[selectedId] : null
 
   if (!isMounted) {
@@ -138,19 +163,79 @@ export default function Home() {
         </button>
       )}
 
-      {/* Main Content Area (Editor) */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      {/* Main Content Area (Editor + Output) */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <Editor 
           item={selectedItem} 
+          items={state.items}
           onContentChange={handleContentChange} 
+          onRun={runScript}
         />
         
+        {/* Output Panel */}
+        <AnimatePresence>
+          {isOutputOpen && (
+            <motion.div 
+              initial={{ height: 0 }}
+              animate={{ height: isMobile ? '40%' : '30%' }}
+              exit={{ height: 0 }}
+              className="bg-[#1e1e1e] border-t border-[#333] flex flex-col overflow-hidden z-20"
+            >
+              <div className="h-8 bg-[#252526] border-b border-[#333] flex items-center px-4 justify-between shrink-0">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-gray-400">
+                  <Terminal className="w-3 h-3" />
+                  Output
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setLogs([])}
+                    className="text-[10px] text-gray-500 hover:text-white transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button 
+                    onClick={() => setIsOutputOpen(false)}
+                    className="text-gray-500 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1">
+                {logs.length === 0 ? (
+                  <div className="text-gray-600 italic p-2">No output to display</div>
+                ) : (
+                  logs.map((log, i) => (
+                    <div key={i} className={cn(
+                      "flex gap-3 py-0.5 border-b border-white/5",
+                      log.type === 'error' ? "text-red-400" : log.type === 'warn' ? "text-yellow-400" : "text-gray-300"
+                    )}>
+                      <span className="text-gray-600 shrink-0">[{log.timestamp}]</span>
+                      <span className="break-all">{log.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Status Bar */}
-        <div className="h-6 bg-[#007acc] text-white text-[10px] flex items-center px-3 gap-4 shrink-0">
+        <div className="h-6 bg-[#007acc] text-white text-[10px] flex items-center px-3 gap-4 shrink-0 z-30">
           <div className="flex items-center gap-1 truncate">
             <span className="opacity-70">Selected:</span>
             <span className="truncate">{selectedItem?.name || 'None'}</span>
           </div>
+          <button 
+            onClick={() => setIsOutputOpen(!isOutputOpen)}
+            className={cn(
+              "flex items-center gap-1 px-2 h-full hover:bg-white/10 transition-colors",
+              isOutputOpen && "bg-white/20"
+            )}
+          >
+            <Terminal className="w-3 h-3" />
+            Output
+          </button>
           {!isMobile && (
             <div className="flex items-center gap-1">
               <span className="opacity-70">Type:</span>
@@ -158,7 +243,7 @@ export default function Home() {
             </div>
           )}
           <div className="ml-auto opacity-70 whitespace-nowrap">
-            Roblox Studio Mobile v1.1
+            Roblox Studio Mobile v1.2
           </div>
         </div>
       </div>
