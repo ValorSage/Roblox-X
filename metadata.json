@@ -1,0 +1,5 @@
+{
+  "name": "Roblox Studio Explorer",
+  "description": "A file explorer UI inspired by Roblox Studio with support for Scripts, LocalScripts, and ModuleScripts.",
+  "requestFramePermissions": []
+}
